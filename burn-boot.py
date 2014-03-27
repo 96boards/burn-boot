@@ -3,6 +3,7 @@
 import os
 import serial
 import array
+from miniterm import Miniterm
 
 class bootdownload(object):
     '''
@@ -69,7 +70,9 @@ class bootdownload(object):
 
     def __init__(self,serialport):
         self.s = serial.Serial(port=serialport, baudrate=115200)
-        pass
+
+    def __del__(self):
+        self.s.close()
 
     def calc_crc(self, data, crc=0):
         for char in data:
@@ -190,5 +193,24 @@ def burnboot(serialport=0, filename='fastboot-burn.bin'):
     print downloader.getsize(filename)
     downloader.download(filename)
 
-burnboot()
+def startterm(serialport=0):
+    try:
+        miniterm = Miniterm(
+            serialport,
+            115200,
+            'N',
+            rtscts=False,
+            xonxoff=False,
+            echo=False,
+            convert_outgoing=2,
+            repr_mode=0,
+        )
+    except serial.SerialException, e:
+        sys.stderr.write("could not open port %r: %s\n" % (port, e))
+        sys.exit(1)
+    miniterm.start()
+    miniterm.join(True)
+    miniterm.join()
 
+burnboot()
+startterm()

@@ -7,7 +7,7 @@ from miniterm import Miniterm
 
 class bootdownload(object):
     '''
-    Hi3716CV200 boot downloader
+    Hisilicon boot downloader
 
     >>> downloader = bootdownload()
     >>> downloader.download(filename)
@@ -50,26 +50,41 @@ class bootdownload(object):
         0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0,
     ]
 
-    DdrStep0_Hi3716CV200 = [
+    configdata = {
+        'hi3716cv200':[
         0x04,0xE0,0x2D,0xE5,0xB0,0x00,0x00,0xE3,0x00,0x08,0x4F,0xE3,0x78,0x16,0x05,0xE3,
         0x34,0x12,0x41,0xE3,0x00,0x10,0x80,0xE5,0xB8,0x00,0x00,0xE3,0x00,0x08,0x4F,0xE3,
         0x75,0x1A,0x06,0xE3,0x69,0x1A,0x47,0xE3,0x04,0x10,0x80,0xE4,0x00,0xE0,0x80,0xE5,
         0x04,0xF0,0x9D,0xE4,0xEF,0xBE,0xAD,0xDE,0xEF,0xBE,0xAD,0xDE,0xEF,0xBE,0xAD,0xDE,
-    ]
+        ]
+    }
 
-    startframe_Hi3716CV200 = [
-         0xFE,0x00,0xFF,0x01,0x00,0x00,0x00,0x04,0x00,0x00,0x02,0x01,
-    ]
+    startframe = {
+        'hi3716cv200':[0xFE,0x00,0xFF,0x01,0x00,0x00,0x00,0x04,0x00,0x00,0x02,0x01]
+    }
 
-    headframe_Hi3716CV200 = [
-         0xFE,0x00,0xFF,0x01,0x00,0x00,0x00,0x04,0x00,0x00,0x02,0x01,
-    ]
+    headframe = {
+        'hi3716cv200':[0xFE,0x00,0xFF,0x01,0x00,0x00,0x00,0x04,0x00,0x00,0x02,0x01]
+    }
 
-    BOOT_HEAD_LENGTH = 0x4F00
+    configaddress = {
+        'hi3716cv200':0xFFFE1000
+    }
 
+    bootheadaddress = {
+        'hi3716cv200':0xFFFE0C00
+    }
 
-    def __init__(self,serialport):
+    bootdownloadaddress = {
+        'hi3716cv200':0x01000000
+    }
+
+    BOOT_HEAD_LEN = 0x4F00
+    MAX_DATA_LEN  = 0x400
+
+    def __init__(self,chiptype,serialport):
         self.s = serial.Serial(port=serialport, baudrate=115200)
+        self.chip = chiptype
 
     def __del__(self):
         self.s.close()
@@ -98,7 +113,7 @@ class bootdownload(object):
 
     def sendstartframe(self):
         self.s.setTimeout(0.01)
-        data = array.array('B', self.startframe_Hi3716CV200).tostring()
+        data = array.array('B', self.startframe[self.chip]).tostring()
         crc = self.calc_crc(data)
         data += chr((crc >> 8)&0xff)
         data += chr(crc&0xff)
@@ -106,16 +121,16 @@ class bootdownload(object):
 
     def sendheadframe(self,length,address):
         self.s.setTimeout(0.03)
-        self.headframe_Hi3716CV200[4] = (length>>24)&0xff
-        self.headframe_Hi3716CV200[5] = (length>>16)&0xff
-        self.headframe_Hi3716CV200[6] = (length>>8)&0xff
-        self.headframe_Hi3716CV200[7] = (length)&0xff
-        self.headframe_Hi3716CV200[8] = (address>>24)&0xff
-        self.headframe_Hi3716CV200[9] = (address>>16)&0xff
-        self.headframe_Hi3716CV200[10] = (address>>8)&0xff
-        self.headframe_Hi3716CV200[11] = (address)&0xff
+        self.headframe[self.chip][4] = (length>>24)&0xff
+        self.headframe[self.chip][5] = (length>>16)&0xff
+        self.headframe[self.chip][6] = (length>>8)&0xff
+        self.headframe[self.chip][7] = (length)&0xff
+        self.headframe[self.chip][8] = (address>>24)&0xff
+        self.headframe[self.chip][9] = (address>>16)&0xff
+        self.headframe[self.chip][10] = (address>>8)&0xff
+        self.headframe[self.chip][11] = (address)&0xff
 
-        data = array.array('B', self.headframe_Hi3716CV200).tostring()
+        data = array.array('B', self.headframe[self.chip]).tostring()
         crc = self.calc_crc(data)
 
         data += chr((crc >> 8)&0xff)
@@ -152,11 +167,11 @@ class bootdownload(object):
         length=len(data)
         self.sendheadframe(length,address)
         seq=1
-        while length > 1024:
-            self.senddataframe(seq,data[(seq-1)*1024:seq*1024])
+        while length > self.MAX_DATA_LEN:
+            self.senddataframe(seq,data[(seq-1)*self.MAX_DATA_LEN:seq*self.MAX_DATA_LEN])
             seq = seq+1
-            length = length-1024
-        self.senddataframe(seq,data[(seq-1)*1024:])
+            length = length-self.MAX_DATA_LEN
+        self.senddataframe(seq,data[(seq-1)*self.MAX_DATA_LEN:])
         self.sendtailframe(seq+1)
 
 
@@ -166,31 +181,30 @@ class bootdownload(object):
         print 'done\n'
 
         print 'sending config info...'
-        data = array.array('B',self.DdrStep0_Hi3716CV200).tostring()
-        self.senddata(data,0xFFFE1000)
+        data = array.array('B',self.configdata[self.chip]).tostring()
+        self.senddata(data,self.configaddress[self.chip])
         print 'done\n'
 
         f=open(filename,"rb")
         data = f.read()
         f.close()
 
-        if len(data) < self.BOOT_HEAD_LENGTH:
+        if len(data) < self.BOOT_HEAD_LEN:
             print 'boot file length error'
             return
 
         print 'sending boot head...'
-        self.senddata(data[:self.BOOT_HEAD_LENGTH],0xFFFE0C00)
+        self.senddata(data[:self.BOOT_HEAD_LEN],self.bootheadaddress[self.chip])
         print 'done\n'
 
         print 'sending boot to ddr...'
-        self.senddata(data,0x01000000)
+        self.senddata(data,self.bootdownloadaddress[self.chip])
         print 'done\n'
 
 
 
-def burnboot(serialport=0, filename='fastboot-burn.bin'):
-    downloader = bootdownload(serialport)
-    print downloader.getsize(filename)
+def burnboot(chiptype, serialport=0, filename='fastboot-burn.bin'):
+    downloader = bootdownload(chiptype, serialport)
     downloader.download(filename)
 
 def startterm(serialport=0):
@@ -212,5 +226,5 @@ def startterm(serialport=0):
     miniterm.join(True)
     miniterm.join()
 
-burnboot()
+burnboot('hi3716cv200')
 startterm()

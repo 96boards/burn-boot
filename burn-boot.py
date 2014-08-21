@@ -226,5 +226,5 @@ def startterm(serialport=0):
     miniterm.join(True)
     miniterm.join()
 
-burnboot('hi3716cv200')
-startterm()
+burnboot('hi3716cv200','/dev/ttyUSB0')
+startterm('/dev/ttyUSB0')

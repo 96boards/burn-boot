@@ -1,8 +1,10 @@
 #!/usr/bin/python
 
 import os
+import os.path
 import serial, time
 import array
+import sys, getopt
 
 class bootdownload(object):
     '''
@@ -69,11 +71,19 @@ class bootdownload(object):
     MAX_DATA_LEN  = 0x400
 
     def __init__(self,chiptype,serialport):
-        self.s = serial.Serial(port=serialport, baudrate=115200, timeout=1)
+        try:
+            self.s = serial.Serial(port=serialport, baudrate=115200, timeout=1)
+        except serial.serialutil.SerialException:
+            #no serial connection
+            self.s = None
+            print "\nFailed to open serial!", serialport
+            sys.exit(2)
+
         self.chip = chiptype
 
     def __del__(self):
-        self.s.close()
+        if self.s != None:
+            self.s.close()
 
     def calc_crc(self, data, crc=0):
         for char in data:
@@ -171,21 +181,20 @@ class bootdownload(object):
         data = f.read()
         f.close()
 
-        print 'sending boot head...'
+        print 'Sending', filename1, '...'
         self.senddata(data,self.bootheadaddress[self.chip])
-        print 'done\n'
+        print 'Done\n'
 
         f=open(filename2,"rb")
         data = f.read()
         f.close()
 
-        print 'sending boot to ddr...'
+        print 'Sending', filename2, '...'
         self.senddata(data,self.bootdownloadaddress[self.chip])
-        print 'done\n'
+        print 'Done\n'
 
 
-
-def burnboot(chiptype, serialport=0, filename1='fastboot1.img', filename2='fastboot2.img'):
+def burnboot(chiptype, serialport, filename1, filename2):
     downloader = bootdownload(chiptype, serialport)
     downloader.download(filename1, filename2)
 
@@ -208,4 +217,40 @@ def startterm(serialport=0):
     miniterm.join(True)
     miniterm.join()
 
-burnboot('hi3716cv200','/dev/ttyUSB0')
+def main(argv):
+    img1 = 'fastboot1.img'
+    img2 = 'fastboot2.img'
+    dev  = '/dev/ttyUSB0'
+    try:
+        opts, args = getopt.getopt(argv,"hd:",["img1=","img2="])
+    except getopt.GetoptError:
+        print 'hisi-idt.py -d device --img1 <fastboot1> --img2 <fastboot2>'
+        sys.exit(2)
+    for opt, arg in opts:
+        if opt == '-h':
+            print 'hisi-idt.py -d device --img1 <fastboot1> --img2 <fastboot2>'
+            sys.exit()
+        elif opt in ("-d"):
+            dev = arg
+        elif opt in ("--img1"):
+            img1 = arg
+        elif opt in ("--img2"):
+            img2 = arg
+    print '+----------------------+'
+    print ' Serial: ', dev
+    print ' Image1: ', img1
+    print ' Image2: ', img2
+    print '+----------------------+\n'
+
+    if not os.path.isfile(img1):
+        print "Image don't exists:", img1
+        sys.exit(1)
+
+    if not os.path.isfile(img2):
+        print "Image don't exists:", img2
+        sys.exit(1)
+
+    burnboot('hi3716cv200', dev, img1, img2)
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

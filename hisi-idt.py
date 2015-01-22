@@ -1,9 +1,8 @@
 #!/usr/bin/python
 
 import os
-import serial
+import serial, time
 import array
-from miniterm import Miniterm
 
 class bootdownload(object):
     '''
@@ -50,15 +49,6 @@ class bootdownload(object):
         0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0,
     ]
 
-    configdata = {
-        'hi3716cv200':[
-        0x04,0xE0,0x2D,0xE5,0xB0,0x00,0x00,0xE3,0x00,0x08,0x4F,0xE3,0x78,0x16,0x05,0xE3,
-        0x34,0x12,0x41,0xE3,0x00,0x10,0x80,0xE5,0xB8,0x00,0x00,0xE3,0x00,0x08,0x4F,0xE3,
-        0x75,0x1A,0x06,0xE3,0x69,0x1A,0x47,0xE3,0x04,0x10,0x80,0xE4,0x00,0xE0,0x80,0xE5,
-        0x04,0xF0,0x9D,0xE4,0xEF,0xBE,0xAD,0xDE,0xEF,0xBE,0xAD,0xDE,0xEF,0xBE,0xAD,0xDE,
-        ]
-    }
-
     startframe = {
         'hi3716cv200':[0xFE,0x00,0xFF,0x01,0x00,0x00,0x00,0x04,0x00,0x00,0x02,0x01]
     }
@@ -67,23 +57,19 @@ class bootdownload(object):
         'hi3716cv200':[0xFE,0x00,0xFF,0x01,0x00,0x00,0x00,0x04,0x00,0x00,0x02,0x01]
     }
 
-    configaddress = {
-        'hi3716cv200':0xFFFE1000
-    }
-
     bootheadaddress = {
-        'hi3716cv200':0xFFFE0C00
+        'hi3716cv200':0xF9800800
     }
 
     bootdownloadaddress = {
-        'hi3716cv200':0x01000000
+        'hi3716cv200':0x07000000
     }
 
     BOOT_HEAD_LEN = 0x4F00
     MAX_DATA_LEN  = 0x400
 
     def __init__(self,chiptype,serialport):
-        self.s = serial.Serial(port=serialport, baudrate=115200)
+        self.s = serial.Serial(port=serialport, baudrate=115200, timeout=1)
         self.chip = chiptype
 
     def __del__(self):
@@ -105,10 +91,14 @@ class bootdownload(object):
             self.s.flushOutput()
             self.s.write(data)
             self.s.flushInput()
-            ack = self.s.read()
-            if len(ack) == 1:
-                if ack == chr(0xaa):
-                    return None
+            try:
+                ack = self.s.read()
+                if len(ack) == 1:
+                    if ack == chr(0xaa):
+                        return None
+            except:
+                return None
+
         print 'failed'
 
     def sendstartframe(self):
@@ -163,7 +153,7 @@ class bootdownload(object):
 
         self.sendframe(data,16)
 
-    def senddata(self,data,address):
+    def senddata(self, data, address):
         length=len(data)
         self.sendheadframe(length,address)
         seq=1
@@ -175,27 +165,19 @@ class bootdownload(object):
         self.sendtailframe(seq+1)
 
 
-    def download(self, filename):
-        print 'sending start frame...'
-        self.sendstartframe()
-        print 'done\n'
+    def download(self, filename1, filename2):
 
-        print 'sending config info...'
-        data = array.array('B',self.configdata[self.chip]).tostring()
-        self.senddata(data,self.configaddress[self.chip])
-        print 'done\n'
-
-        f=open(filename,"rb")
+        f=open(filename1,"rb")
         data = f.read()
         f.close()
 
-        if len(data) < self.BOOT_HEAD_LEN:
-            print 'boot file length error'
-            return
-
         print 'sending boot head...'
-        self.senddata(data[:self.BOOT_HEAD_LEN],self.bootheadaddress[self.chip])
+        self.senddata(data,self.bootheadaddress[self.chip])
         print 'done\n'
+
+        f=open(filename2,"rb")
+        data = f.read()
+        f.close()
 
         print 'sending boot to ddr...'
         self.senddata(data,self.bootdownloadaddress[self.chip])
@@ -203,9 +185,9 @@ class bootdownload(object):
 
 
 
-def burnboot(chiptype, serialport=0, filename='fastboot-burn.bin'):
+def burnboot(chiptype, serialport=0, filename1='fastboot1.img', filename2='fastboot2.img'):
     downloader = bootdownload(chiptype, serialport)
-    downloader.download(filename)
+    downloader.download(filename1, filename2)
 
 def startterm(serialport=0):
     try:
@@ -227,4 +209,3 @@ def startterm(serialport=0):
     miniterm.join()
 
 burnboot('hi3716cv200','/dev/ttyUSB0')
-startterm('/dev/ttyUSB0')

@@ -185,16 +185,17 @@ class bootdownload(object):
         self.senddata(data,self.bootheadaddress[self.chip])
         print 'Done\n'
 
-        f=open(filename2,"rb")
-        data = f.read()
-        f.close()
+        if filename2:
+            f=open(filename2,"rb")
+            data = f.read()
+            f.close()
 
-        print 'Sending', filename2, '...'
-        self.senddata(data,self.bootdownloadaddress[self.chip])
-        print 'Done\n'
+            print 'Sending', filename2, '...'
+            self.senddata(data,self.bootdownloadaddress[self.chip])
+            print 'Done\n'
 
 
-def burnboot(chiptype, serialport, filename1, filename2):
+def burnboot(chiptype, serialport, filename1, filename2=''):
     downloader = bootdownload(chiptype, serialport)
     downloader.download(filename1, filename2)
 
@@ -218,8 +219,11 @@ def startterm(serialport=0):
     miniterm.join()
 
 def main(argv):
-    img1 = 'fastboot1.img'
+    '''
     img2 = 'fastboot2.img'
+    '''
+    img1 = 'fastboot1.img'
+    img2 = ''
     dev  = '/dev/ttyUSB0'
     try:
         opts, args = getopt.getopt(argv,"hd:",["img1=","img2="])
@@ -246,9 +250,10 @@ def main(argv):
         print "Image don't exists:", img1
         sys.exit(1)
 
-    if not os.path.isfile(img2):
-        print "Image don't exists:", img2
-        sys.exit(1)
+    if (img2):
+        if not os.path.isfile(img2):
+            print "Image don't exists:", img2
+            sys.exit(1)
 
     burnboot('hi3716cv200', dev, img1, img2)
 

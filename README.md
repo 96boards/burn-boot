@@ -7,6 +7,8 @@ A tool for downloading binaries to soc ram and ddr through serial port.
 ----------
 
 python hisi-idt.py -d device --img1 <fastboot1> --img2 <fastboot2>
+or
+python hisi-idt.py -d device --img1 <l-loader.bin>
 
 2. Download Steps
 -----------------

@@ -1,4 +1,5 @@
 #!/usr/bin/python
+#-*- coding: utf-8 -*-
 
 import os
 import os.path
@@ -224,7 +225,7 @@ def main(argv):
     '''
     img1 = 'fastboot1.img'
     img2 = ''
-    dev  = '/dev/ttyUSB0'
+    dev  = '/dev/serial/by-id/usb-䕇䕎䥎_㄰㌲㔴㜶㤸-if00-port0'
     try:
         opts, args = getopt.getopt(argv,"hd:",["img1=","img2="])
     except getopt.GetoptError:

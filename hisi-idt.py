@@ -243,6 +243,14 @@ def main(argv):
             img1 = arg
         elif opt in ("--img2"):
             img2 = arg
+    if dev == '':
+        if os.path.exists(dev1):
+            dev = dev1
+        elif os.path.exists(dev2):
+            dev = dev2
+        else:
+            print('Device not detected under /dev/serial/by-id/. Please use -d.')
+            sys.exit(3)
     print('+----------------------+')
     print(' Serial: ', dev)
     print(' Image1: ', img1)
